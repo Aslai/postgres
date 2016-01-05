@@ -45,6 +45,23 @@
 #ifndef C_H
 #define C_H
 
+#include "st.h"
+st_netfd_t pg_st_open_sock(int a, int b, int c);
+void pg_st_close_sock(st_netfd_t sock);
+int pg_st_write(st_netfd_t sock, const void* data, int length, int flags);
+int pg_st_recv(st_netfd_t sock, void* data, int length, int flags);
+int pg_st_accept(st_netfd_t sock, void *arg1, void* len);
+
+#define send(a,b,c,d) pg_st_write(a,b,c,d)
+#define recv(a,b,c,d) pg_st_recv(a,b,c,d)
+#define connect(a,b,c) st_connect(a,b,c,-1)
+#define accept(a,b,c) pg_st_accept(a,b,c)
+#define poll(a,b,c) (st_netfd_poll(a,b,c*1000) == 0 ? 100 : -1)
+#define socket(a,b,c) pg_st_open_sock(a,b,c)
+#define closesocket(a) pg_st_close_sock(a)
+
+
+
 #include "postgres_ext.h"
 
 /* Must undef pg_config_ext.h symbols before including pg_config.h */

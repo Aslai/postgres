@@ -20,13 +20,15 @@
 bool
 pg_set_noblock(pgsocket sock)
 {
+	st_netfd_setspecific(sock, (void*) 1, NULL);
+	return true;
 #if !defined(WIN32)
-	return (fcntl(sock, F_SETFL, O_NONBLOCK) != -1);
+	//return (fcntl(st_netfd_fileno(sock), F_SETFL, O_NONBLOCK) != -1);
 #else
-	unsigned long ioctlsocket_ret = 1;
+	//unsigned long ioctlsocket_ret = 1;
 
 	/* Returns non-0 on failure, while fcntl() returns -1 on failure */
-	return (ioctlsocket(sock, FIONBIO, &ioctlsocket_ret) == 0);
+	//return (ioctlsocket(st_netfd_fileno(sock), FIONBIO, &ioctlsocket_ret) == 0);
 #endif
 }
 
@@ -34,17 +36,19 @@ pg_set_noblock(pgsocket sock)
 bool
 pg_set_block(pgsocket sock)
 {
-#if !defined(WIN32)
-	int			flags;
-
-	flags = fcntl(sock, F_GETFL);
-	if (flags < 0 || fcntl(sock, F_SETFL, (long) (flags & ~O_NONBLOCK)))
-		return false;
+	st_netfd_setspecific(sock, (void*) 0, NULL);
 	return true;
+#if !defined(WIN32)
+	//int			flags;
+
+	//flags = fcntl(st_netfd_fileno(sock), F_GETFL);
+	//if (flags < 0 || fcntl(st_netfd_fileno(sock), F_SETFL, (long) (flags & ~O_NONBLOCK)))
+	//	return false;
+	//return true;
 #else
-	unsigned long ioctlsocket_ret = 0;
+	//unsigned long ioctlsocket_ret = 0;
 
 	/* Returns non-0 on failure, while fcntl() returns -1 on failure */
-	return (ioctlsocket(sock, FIONBIO, &ioctlsocket_ret) == 0);
+	//return (ioctlsocket(st_netfd_fileno(sock), FIONBIO, &ioctlsocket_ret) == 0);
 #endif
 }

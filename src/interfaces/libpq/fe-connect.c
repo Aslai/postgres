@@ -1088,7 +1088,7 @@ connectNoDelay(PGconn *conn)
 #ifdef	TCP_NODELAY
 	int			on = 1;
 
-	if (setsockopt(conn->sock, IPPROTO_TCP, TCP_NODELAY,
+	if (setsockopt(st_netfd_fileno(conn->sock), IPPROTO_TCP, TCP_NODELAY,
 				   (char *) &on,
 				   sizeof(on)) < 0)
 	{
@@ -1234,7 +1234,7 @@ setKeepalivesIdle(PGconn *conn)
 		idle = 0;
 
 #ifdef TCP_KEEPIDLE
-	if (setsockopt(conn->sock, IPPROTO_TCP, TCP_KEEPIDLE,
+	if (setsockopt(st_netfd_fileno(conn->sock), IPPROTO_TCP, TCP_KEEPIDLE,
 				   (char *) &idle, sizeof(idle)) < 0)
 	{
 		char		sebuf[256];
@@ -1247,7 +1247,7 @@ setKeepalivesIdle(PGconn *conn)
 #else
 #ifdef TCP_KEEPALIVE
 	/* Darwin uses TCP_KEEPALIVE rather than TCP_KEEPIDLE */
-	if (setsockopt(conn->sock, IPPROTO_TCP, TCP_KEEPALIVE,
+	if (setsockopt(st_netfd_fileno(conn->sock), IPPROTO_TCP, TCP_KEEPALIVE,
 				   (char *) &idle, sizeof(idle)) < 0)
 	{
 		char		sebuf[256];
@@ -1279,7 +1279,7 @@ setKeepalivesInterval(PGconn *conn)
 		interval = 0;
 
 #ifdef TCP_KEEPINTVL
-	if (setsockopt(conn->sock, IPPROTO_TCP, TCP_KEEPINTVL,
+	if (setsockopt(st_netfd_fileno(conn->sock), IPPROTO_TCP, TCP_KEEPINTVL,
 				   (char *) &interval, sizeof(interval)) < 0)
 	{
 		char		sebuf[256];
@@ -1311,7 +1311,7 @@ setKeepalivesCount(PGconn *conn)
 		count = 0;
 
 #ifdef TCP_KEEPCNT
-	if (setsockopt(conn->sock, IPPROTO_TCP, TCP_KEEPCNT,
+	if (setsockopt(st_netfd_fileno(conn->sock), IPPROTO_TCP, TCP_KEEPCNT,
 				   (char *) &count, sizeof(count)) < 0)
 	{
 		char		sebuf[256];
@@ -1353,7 +1353,7 @@ setKeepalivesWin32(PGconn *conn)
 	ka.keepalivetime = idle * 1000;
 	ka.keepaliveinterval = interval * 1000;
 
-	if (WSAIoctl(conn->sock,
+	if (WSAIoctl(st_netfd_fileno(conn->sock),
 				 SIO_KEEPALIVE_VALS,
 				 (LPVOID) &ka,
 				 sizeof(ka),
@@ -1748,7 +1748,7 @@ keep_going:						/* We will come back to here until there is
 					}
 
 #ifdef F_SETFD
-					if (fcntl(conn->sock, F_SETFD, FD_CLOEXEC) == -1)
+					if (fcntl(st_netfd_fileno(conn->sock), F_SETFD, FD_CLOEXEC) == -1)
 					{
 						appendPQExpBuffer(&conn->errorMessage,
 										  libpq_gettext("could not set socket to close-on-exec mode: %s\n"),
@@ -1778,7 +1778,7 @@ keep_going:						/* We will come back to here until there is
 							/* Do nothing */
 						}
 #ifndef WIN32
-						else if (setsockopt(conn->sock,
+						else if (setsockopt(st_netfd_fileno(conn->sock),
 											SOL_SOCKET, SO_KEEPALIVE,
 											(char *) &on, sizeof(on)) < 0)
 						{
@@ -1838,7 +1838,7 @@ keep_going:						/* We will come back to here until there is
 
 #ifdef SO_NOSIGPIPE
 					optval = 1;
-					if (setsockopt(conn->sock, SOL_SOCKET, SO_NOSIGPIPE,
+					if (setsockopt(st_netfd_fileno(conn->sock), SOL_SOCKET, SO_NOSIGPIPE,
 								   (char *) &optval, sizeof(optval)) == 0)
 					{
 						conn->sigpipe_so = true;
@@ -1916,7 +1916,7 @@ keep_going:						/* We will come back to here until there is
 				 * state waiting for us on the socket.
 				 */
 
-				if (getsockopt(conn->sock, SOL_SOCKET, SO_ERROR,
+				if (getsockopt(st_netfd_fileno(conn->sock), SOL_SOCKET, SO_ERROR,
 							   (char *) &optval, &optlen) == -1)
 				{
 					appendPQExpBuffer(&conn->errorMessage,
@@ -1949,7 +1949,7 @@ keep_going:						/* We will come back to here until there is
 
 				/* Fill in the client address */
 				conn->laddr.salen = sizeof(conn->laddr.addr);
-				if (getsockname(conn->sock,
+				if (getsockname(st_netfd_fileno(conn->sock),
 								(struct sockaddr *) & conn->laddr.addr,
 								&conn->laddr.salen) < 0)
 				{
@@ -1988,7 +1988,7 @@ keep_going:						/* We will come back to here until there is
 					gid_t		gid;
 
 					errno = 0;
-					if (getpeereid(conn->sock, &uid, &gid) != 0)
+					if (getpeereid(st_netfd_fileno(conn->sock), &uid, &gid) != 0)
 					{
 						/*
 						 * Provide special error message if getpeereid is a

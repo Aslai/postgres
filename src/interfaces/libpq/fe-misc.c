@@ -63,7 +63,7 @@ static int	pqPutMsgBytes(const void *buf, size_t len, PGconn *conn);
 static int	pqSendSome(PGconn *conn, int len);
 static int pqSocketCheck(PGconn *conn, int forRead, int forWrite,
 			  time_t end_time);
-static int	pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time);
+static int	pqSocketPoll(pgsocket sock, int forRead, int forWrite, time_t end_time);
 
 /*
  * PQlibVersion: return the libpq version number
@@ -1072,15 +1072,15 @@ pqSocketCheck(PGconn *conn, int forRead, int forWrite, time_t end_time)
 	/* We will retry as long as we get EINTR */
 	do
 		result = pqSocketPoll(conn->sock, forRead, forWrite, end_time);
-	while (result < 0 && SOCK_ERRNO == EINTR);
+	while (result < 0 && errno == EINTR);
 
 	if (result < 0)
 	{
 		char		sebuf[256];
 
 		printfPQExpBuffer(&conn->errorMessage,
-						  libpq_gettext("select() failed: %s\n"),
-						  SOCK_STRERROR(SOCK_ERRNO, sebuf, sizeof(sebuf)));
+						  libpq_gettext("select() failed: %s %d %d\n"),
+						  SOCK_STRERROR(SOCK_ERRNO, sebuf, sizeof(sebuf)), result, errno);
 	}
 
 	return result;
@@ -1097,24 +1097,21 @@ pqSocketCheck(PGconn *conn, int forRead, int forWrite, time_t end_time)
  * if end_time is 0 (or indeed, any time before now).
  */
 static int
-pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time)
+pqSocketPoll(pgsocket sock, int forRead, int forWrite, time_t end_time)
 {
 	/* We use poll(2) if available, otherwise select(2) */
-#ifdef HAVE_POLL
-	struct pollfd input_fd;
-	int			timeout_ms;
+	st_utime_t			timeout_ms;
+	int flags;
 
 	if (!forRead && !forWrite)
 		return 0;
 
-	input_fd.fd = sock;
-	input_fd.events = POLLERR;
-	input_fd.revents = 0;
+	flags = POLLPRI;
 
 	if (forRead)
-		input_fd.events |= POLLIN;
+		flags |= POLLIN;
 	if (forWrite)
-		input_fd.events |= POLLOUT;
+		flags |= POLLOUT;
 
 	/* Compute appropriate timeout interval */
 	if (end_time == ((time_t) -1))
@@ -1124,51 +1121,18 @@ pqSocketPoll(int sock, int forRead, int forWrite, time_t end_time)
 		time_t		now = time(NULL);
 
 		if (end_time > now)
-			timeout_ms = (end_time - now) * 1000;
+			timeout_ms = (end_time - now);
 		else
 			timeout_ms = 0;
+		timeout_ms *= 1000000;
 	}
-
-	return poll(&input_fd, 1, timeout_ms);
-#else							/* !HAVE_POLL */
-
-	fd_set		input_mask;
-	fd_set		output_mask;
-	fd_set		except_mask;
-	struct timeval timeout;
-	struct timeval *ptr_timeout;
-
-	if (!forRead && !forWrite)
+	if( st_netfd_poll(sock, flags, timeout_ms) >= 0 ){
+		return 1;
+	}
+	if( errno == ETIME ){
 		return 0;
-
-	FD_ZERO(&input_mask);
-	FD_ZERO(&output_mask);
-	FD_ZERO(&except_mask);
-	if (forRead)
-		FD_SET(sock, &input_mask);
-
-	if (forWrite)
-		FD_SET(sock, &output_mask);
-	FD_SET(sock, &except_mask);
-
-	/* Compute appropriate timeout interval */
-	if (end_time == ((time_t) -1))
-		ptr_timeout = NULL;
-	else
-	{
-		time_t		now = time(NULL);
-
-		if (end_time > now)
-			timeout.tv_sec = end_time - now;
-		else
-			timeout.tv_sec = 0;
-		timeout.tv_usec = 0;
-		ptr_timeout = &timeout;
 	}
-
-	return select(sock + 1, &input_mask, &output_mask,
-				  &except_mask, ptr_timeout);
-#endif   /* HAVE_POLL */
+	return -1;
 }
 
 

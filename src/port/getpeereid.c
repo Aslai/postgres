@@ -14,6 +14,48 @@
 
 #include "c.h"
 
+int pg_st_write(st_netfd_t sock, const void* udata, int length, int flags){
+	void* data = st_netfd_getspecific(sock);
+	int ret = st_write(sock,udata,length,data==NULL?-1:100);
+	if( ret == -1 && data != NULL ){
+		if( errno == ETIME ){
+			errno = EAGAIN;
+		}
+	}
+	return ret;
+}
+int pg_st_recv(st_netfd_t sock, void* udata, int length, int flags){
+	void* data = st_netfd_getspecific(sock);
+	int ret = st_read(sock,udata,length,data==NULL?-1:100);
+	if( ret == -1 && data != NULL ){
+		if( errno == ETIME ){
+			errno = EAGAIN;
+		}
+	}
+	return ret;
+}
+int pg_st_accept(st_netfd_t sock, void *arg1, void* len){
+	void* data = st_netfd_getspecific(sock);
+	int ret = st_accept(sock,arg1,len,data==NULL?-1:100);
+	if( ret == -1 && data != NULL ){
+		if( errno == ETIME ){
+			errno = EAGAIN;
+		}
+	}
+	return ret;
+}
+
+
+st_netfd_t pg_st_open_sock(int a, int b, int c){
+	#undef socket
+	int desc = socket(a, b, c);
+	#define socket(a,b,c) pg_st_open_sock(a,b,c)
+	return st_netfd_open_socket(desc);
+}
+
+void pg_st_close_sock(st_netfd_t sock){
+	st_netfd_close(sock);
+}
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <unistd.h>

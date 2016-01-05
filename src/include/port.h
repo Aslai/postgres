@@ -19,11 +19,11 @@
 
 /* socket has a different definition on WIN32 */
 #ifndef WIN32
-typedef int pgsocket;
+typedef st_netfd_t pgsocket;
 
 #define PGINVALID_SOCKET (-1)
 #else
-typedef SOCKET pgsocket;
+typedef st_netfd_t pgsocket;
 
 #define PGINVALID_SOCKET INVALID_SOCKET
 #endif
@@ -335,7 +335,7 @@ extern int	gettimeofday(struct timeval * tp, struct timezone * tzp);
  *	Win32 requires a special close for sockets and pipes, while on Unix
  *	close() does them all.
  */
-#define closesocket close
+//#define closesocket close
 #endif   /* WIN32 */
 
 /*
